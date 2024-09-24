@@ -1,0 +1,610 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="John Doe">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="概要本节是笔记2：C语言的内存管理，用户栈的代码实现学习记录。 内存分区C语言中的内存分区从上往下依次是：  栈区：存放局部变量、函数传递的参数、函数返回值及返回地址、const定义的局部变量。 堆区：一块可分配内存，堆区由程序员分配内存和释放 .bss段：存放未初始化或初始值为0的全局变量，特点是不占用可执行文件空间，.bss段通常需要进行清零操作。 .data段：存放有初始值的全局变量、静态变">
+<meta property="og:type" content="article">
+<meta property="og:title" content="笔记2：C语言的内存管理，用户栈的代码实现">
+<meta property="og:url" content="http://example.com/2024/08/30/%E7%AC%94%E8%AE%B02%EF%BC%9AC%E8%AF%AD%E8%A8%80%E7%9A%84%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%EF%BC%8C%E7%94%A8%E6%88%B7%E6%A0%88%E7%9A%84%E4%BB%A3%E7%A0%81%E5%AE%9E%E7%8E%B0/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="概要本节是笔记2：C语言的内存管理，用户栈的代码实现学习记录。 内存分区C语言中的内存分区从上往下依次是：  栈区：存放局部变量、函数传递的参数、函数返回值及返回地址、const定义的局部变量。 堆区：一块可分配内存，堆区由程序员分配内存和释放 .bss段：存放未初始化或初始值为0的全局变量，特点是不占用可执行文件空间，.bss段通常需要进行清零操作。 .data段：存放有初始值的全局变量、静态变">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/img/c.jpeg">
+<meta property="article:published_time" content="2024-08-30T08:20:20.000Z">
+<meta property="article:modified_time" content="2024-09-24T12:13:03.224Z">
+<meta property="article:author" content="John Doe">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="http://example.com/img/c.jpeg">
+  
+  
+  
+  <title>笔记2：C语言的内存管理，用户栈的代码实现 - Hexo</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"example.com","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"C"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"left","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>向风</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="笔记2：C语言的内存管理，用户栈的代码实现"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-08-30 16:20" pubdate>
+          2024年8月30日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.8k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          16 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="padding-left: 2rem; margin-right: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">笔记2：C语言的内存管理，用户栈的代码实现</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="概要"><a href="#概要" class="headerlink" title="概要"></a>概要</h1><p>本节是笔记2：C语言的内存管理，用户栈的代码实现学习记录。</p>
+<h1 id="内存分区"><a href="#内存分区" class="headerlink" title="内存分区"></a>内存分区</h1><p>C语言中的内存分区从上往下依次是：</p>
+<ul>
+<li><strong>栈区</strong>：存放局部变量、函数传递的参数、函数返回值及返回地址、const定义的局部变量。</li>
+<li><strong>堆区</strong>：一块可分配内存，堆区由程序员分配内存和释放</li>
+<li><strong>.bss段</strong>：存放未初始化或初始值为0的全局变量，特点是<code>不占用可执行文件空间</code>，.bss段通常需要进行清零操作。</li>
+<li><strong>.data段</strong>：存放有初始值的全局变量、静态变量，其中const修饰的变量存放在.rodata段。<code>.data段涉及代码重定位，.data的初始值需要被拷贝至运行地址才能正常访问，在C标准函数__main中实现拷贝。</code></li>
+<li><strong>常量区</strong>：const修饰的全局变量或静态变量，STM32中会将其保存在FLASH中，也叫<code>.rodata</code>段。</li>
+<li><strong>代码段</strong>：存放程序的代码，即被转化为机器码的二进制数据。</li>
+<li><strong>空字节段</strong>：从0地址开始直到代码段的区域， 是没有用到的字节区域，<code>一般存放指向NULL的空指针</code>。</li>
+</ul>
+<h1 id="堆"><a href="#堆" class="headerlink" title="堆"></a>堆</h1><h2 id="malloc"><a href="#malloc" class="headerlink" title="malloc"></a>malloc</h2><p>一般使用方式如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">stack_t</span> *<span class="hljs-title">p</span> =</span> (<span class="hljs-keyword">struct</span> <span class="hljs-type">stack_t</span> *)<span class="hljs-built_in">malloc</span>(<span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">struct</span> <span class="hljs-type">stack_t</span>));<br></code></pre></td></tr></table></figure>
+<p>申请一块想要的内存大小并返回首地址，Linux中内部是通过<code>sbrk</code>函数向内核申请内存来实现的，其内部还需要实现查找内存块、各种内存块链表操作等，这里不细说。</p>
+<h2 id="free"><a href="#free" class="headerlink" title="free"></a>free</h2><p>一般使用方式如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-built_in">free</span>(p);					<span class="hljs-comment">//记得释放内存</span><br></code></pre></td></tr></table></figure>
+<p><code>free</code>只能释放<code>malloc</code>返回的指针，否则会报错，<code>free</code>内部操作较为复杂，除了将已申请的<code>malloc</code>内存块插入到空闲内存块链表以外，还要完成相邻内存块合并等操作来最大限度利用空间，最大程度减少内存碎片。<br>&#x3D;&#x3D;只<code>malloc</code>而不进行<code>free</code>将会导致内存泄漏，导致之前被申请的内存块处于空闲但不能被再次申请&#x3D;&#x3D;</p>
+<h1 id="栈"><a href="#栈" class="headerlink" title="栈"></a>栈</h1><p>栈操作通常由编译器自己完成，通常在程序需要调用函数跳转时进行栈的操作，栈操作有<code>push</code>入栈和<code>pop</code>出栈。可以通过编写简单的函数调用程序，然后观察其反汇编代码查看编译器入栈和出栈的过程。这里不细说，本节重点在下文。</p>
+<h1 id="用户栈的代码实现"><a href="#用户栈的代码实现" class="headerlink" title="用户栈的代码实现"></a>用户栈的代码实现</h1><h2 id="用户栈分类"><a href="#用户栈分类" class="headerlink" title="用户栈分类"></a>用户栈分类</h2><ul>
+<li><strong>数组栈</strong>：栈内存是数组，一块连续的内存，大小自定义指定，数组的索引作为栈顶指针。</li>
+<li><strong>链表栈</strong>：栈内存需要动态分配，一个数据对应一个结点，大小视程序而定，不需要自己指定，以头结点的<code>node</code>属性作为索引。</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">define</span> STACK_MAX_SIZE	1*1024		<span class="hljs-comment">//设置栈大小</span></span><br><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> ARRAY_STACK		1			<span class="hljs-comment">//指定使用数组栈</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> LIST_STACK		2			<span class="hljs-comment">//指定使用链表栈</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> STACK_TYPE ARRAY_STACK   	<span class="hljs-comment">//指定使用哪种栈类型</span></span><br><br><span class="hljs-comment">//构建自定义栈结构体</span><br><span class="hljs-keyword">typedef</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">stack_t</span>&#123;</span><br><span class="hljs-meta">#<span class="hljs-keyword">if</span> STACK_TYPE == ARRAY_STACK</span><br>    <span class="hljs-type">int</span> stack_data[STACK_MAX_SIZE]; <span class="hljs-comment">//栈内存</span><br>    <span class="hljs-type">int</span> stack_sp;                   <span class="hljs-comment">//栈顶指针</span><br><span class="hljs-meta">#<span class="hljs-keyword">elif</span> STACK_TYPE == LIST_STACK</span><br>    <span class="hljs-type">int</span> data;						<span class="hljs-comment">//栈结点数据</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">stack_t</span> *<span class="hljs-title">next</span>;</span>			<span class="hljs-comment">//指向下一个结点</span><br><span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br>&#125;stacks;<br></code></pre></td></tr></table></figure>
+<h2 id="新建栈和初始化栈"><a href="#新建栈和初始化栈" class="headerlink" title="新建栈和初始化栈"></a>新建栈和初始化栈</h2><ul>
+<li><strong>数组栈</strong>：定义一个栈结构体，编译器自动分配内存，再把&#x3D;&#x3D;栈顶指针&#x3D;&#x3D;即数组索引值设置为<code>0</code>即可。</li>
+<li><strong>链表栈</strong>：定义一个栈结构体，编译器自动分配内存，再把&#x3D;&#x3D;栈顶指针&#x3D;&#x3D;即栈链表头部<code>next</code>设置为<code>NULL</code>即可。</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-type">void</span> <span class="hljs-title function_">StackUserInit</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> <span class="hljs-type">stack_t</span> *pStack_User)</span><br>&#123;<br><span class="hljs-meta">#<span class="hljs-keyword">if</span> STACK_TYPE == ARRAY_STACK</span><br>	pStack_User-&gt;stack_sp = <span class="hljs-number">0</span>;<br><span class="hljs-meta">#<span class="hljs-keyword">elif</span> STACK_TYPE == LIST_STACK</span><br>	pStack_User-&gt;next = <span class="hljs-literal">NULL</span>;<br><span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h2 id="Push实现"><a href="#Push实现" class="headerlink" title="Push实现"></a>Push实现</h2><ul>
+<li><strong>数组栈Push</strong>：先填入数据，再栈顶指针偏移。</li>
+<li><strong>链表栈Push</strong>：先申请一个新的数据结点的内存并将数据填入，再插入到栈链表头部结点<code>next</code>属性之后。<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/********************************************************</span><br><span class="hljs-comment">* Description   : 入栈</span><br><span class="hljs-comment">* @pStack_User  : 目标栈的指针</span><br><span class="hljs-comment">* @data  		: 入栈数据</span><br><span class="hljs-comment">* Return        : 0:入栈成功    </span><br><span class="hljs-comment">*				 -1：入栈失败，可能是栈满了</span><br><span class="hljs-comment">**********************************************************/</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">Push</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> <span class="hljs-type">stack_t</span> *pStack_User, <span class="hljs-type">int</span> data)</span><br>&#123;<br><span class="hljs-meta">#<span class="hljs-keyword">if</span> STACK_TYPE == ARRAY_STACK</span><br>	<span class="hljs-comment">/* 如果栈还没满 */</span><br>	<span class="hljs-keyword">if</span>(pStack_User-&gt;stack_sp != STACK_MAX_SIZE)&#123;<br>		pStack_User-&gt;stack_data[pStack_User-&gt;stack_sp] = data;	<span class="hljs-comment">//数据入栈</span><br>		pStack_User-&gt;stack_sp++;								<span class="hljs-comment">//栈顶指针偏移</span><br>		<span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>	&#125;<br>	<span class="hljs-keyword">else</span>&#123;<br>		<span class="hljs-comment">/* 栈已满 */</span><br>		<span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>	&#125;<br><span class="hljs-meta">#<span class="hljs-keyword">elif</span> STACK_TYPE == LIST_STACK</span><br>	<span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">stack_t</span> *<span class="hljs-title">p</span> =</span> (<span class="hljs-keyword">struct</span> <span class="hljs-type">stack_t</span> *)<span class="hljs-built_in">malloc</span>(<span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">struct</span> <span class="hljs-type">stack_t</span>));<br>	<span class="hljs-keyword">if</span>(p)&#123;<br>		<span class="hljs-comment">/* 先储存数据 */</span><br>		p-&gt;data = data;<br>		<span class="hljs-comment">/* 再插入链表 */</span><br>		p-&gt;next = pStack_User-&gt;next;<br>		pStack_User-&gt;next = p;<br>		<span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>	&#125;<br>	<span class="hljs-keyword">else</span>&#123;<br>		<span class="hljs-comment">/* 内存申请失败，入栈失败 */</span><br>		<span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>	&#125;<br><span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br>&#125;<br></code></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="Pop实现"><a href="#Pop实现" class="headerlink" title="Pop实现"></a>Pop实现</h2><ul>
+<li><strong>数组栈Pop</strong>：先将栈顶指针偏移，再返回数据。</li>
+<li><strong>链表栈Pop</strong>：先将当前栈顶指针<code>next</code>属性处数据储存，再删除该结点并释放内存，最后返回数据。<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/********************************************************</span><br><span class="hljs-comment">* Description   : 出栈</span><br><span class="hljs-comment">* @pStack_User  : 目标栈的指针</span><br><span class="hljs-comment">* @data  		: 数据存储指针</span><br><span class="hljs-comment">* Return        : 0:入栈成功    </span><br><span class="hljs-comment">*				 -1：入栈失败，可能是栈满了</span><br><span class="hljs-comment">**********************************************************/</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">Pop</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> <span class="hljs-type">stack_t</span> *pStack_User, <span class="hljs-type">int</span> *data)</span><br>&#123;<br><span class="hljs-meta">#<span class="hljs-keyword">if</span> STACK_TYPE == ARRAY_STACK</span><br>	<span class="hljs-comment">/* 如果栈不是空的 */</span><br>	<span class="hljs-keyword">if</span>(pStack_User-&gt;stack_sp != <span class="hljs-number">0</span>)&#123;<br>		pStack_User-&gt;stack_sp--;								<span class="hljs-comment">//栈顶指针偏移</span><br>		*data = pStack_User-&gt;stack_data[pStack_User-&gt;stack_sp];	<span class="hljs-comment">//数据出栈</span><br>		<span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>	&#125;<br>	<span class="hljs-keyword">else</span>&#123;<br>		<span class="hljs-comment">/* 栈是空的 */</span><br>		<span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>	&#125;<br><span class="hljs-meta">#<span class="hljs-keyword">elif</span> STACK_TYPE == LIST_STACK</span><br>	<span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">stack_t</span> *<span class="hljs-title">p</span> =</span> pStack_User-&gt;next;	<span class="hljs-comment">//获得头结点后第一个栈结点指针</span><br>	<span class="hljs-comment">/* 如果栈不是空的 */</span><br>	<span class="hljs-keyword">if</span>(p)&#123;<br>		pStack_User-&gt;next = p-&gt;next;<span class="hljs-comment">//删除该栈结点</span><br>		*data = p-&gt;data;			<span class="hljs-comment">//返回数据</span><br>		<span class="hljs-built_in">free</span>(p);					<span class="hljs-comment">//记得释放内存</span><br>		<span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>	&#125;<br>	<span class="hljs-keyword">else</span>&#123;<br>		<span class="hljs-comment">/* 栈是空的 */</span><br>		<span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>	&#125;<br><span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br>&#125;<br></code></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="用户栈操作注意"><a href="#用户栈操作注意" class="headerlink" title="用户栈操作注意"></a>用户栈操作注意</h2><ul>
+<li><code>Push</code>与<code>Pop</code>都需要判断栈满与栈空的情况，代码中均已体现。</li>
+</ul>
+<h1 id="完整工程代码"><a href="#完整工程代码" class="headerlink" title="完整工程代码"></a>完整工程代码</h1><ul>
+<li>所有代码均已进行测试，在windows上可以正常运行。</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&quot;stdio.h&quot;</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">include</span> <span class="hljs-string">&quot;stdlib.h&quot;</span></span><br><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> STACK_MAX_SIZE	1*1024		<span class="hljs-comment">//设置栈大小</span></span><br><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> ARRAY_STACK		1			<span class="hljs-comment">//指定使用数组栈</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> LIST_STACK		2			<span class="hljs-comment">//指定使用链表栈</span></span><br><span class="hljs-meta">#<span class="hljs-keyword">define</span> STACK_TYPE ARRAY_STACK   	<span class="hljs-comment">//指定使用哪种栈类型</span></span><br><br><span class="hljs-comment">//构建自定义栈结构体</span><br><span class="hljs-keyword">typedef</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">stack_t</span>&#123;</span><br><span class="hljs-meta">#<span class="hljs-keyword">if</span> STACK_TYPE == ARRAY_STACK</span><br>    <span class="hljs-type">int</span> stack_data[STACK_MAX_SIZE]; <span class="hljs-comment">//栈内存</span><br>    <span class="hljs-type">int</span> stack_sp;                   <span class="hljs-comment">//栈顶指针</span><br><span class="hljs-meta">#<span class="hljs-keyword">elif</span> STACK_TYPE == LIST_STACK</span><br>    <span class="hljs-type">int</span> data;						<span class="hljs-comment">//栈结点数据</span><br>    <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">stack_t</span> *<span class="hljs-title">next</span>;</span>			<span class="hljs-comment">//指向下一个结点</span><br><span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br>&#125;stacks;<br><br><span class="hljs-comment">/********************************************************</span><br><span class="hljs-comment">* Description   : 入栈</span><br><span class="hljs-comment">* @pStack_User  : 目标栈的指针</span><br><span class="hljs-comment">* @data  		: 入栈数据</span><br><span class="hljs-comment">* Return        : 0:入栈成功    </span><br><span class="hljs-comment">*				 -1：入栈失败，可能是栈满了</span><br><span class="hljs-comment">**********************************************************/</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">Push</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> <span class="hljs-type">stack_t</span> *pStack_User, <span class="hljs-type">int</span> data)</span><br>&#123;<br><span class="hljs-meta">#<span class="hljs-keyword">if</span> STACK_TYPE == ARRAY_STACK</span><br>	<span class="hljs-comment">/* 如果栈还没满 */</span><br>	<span class="hljs-keyword">if</span>(pStack_User-&gt;stack_sp != STACK_MAX_SIZE)&#123;<br>		pStack_User-&gt;stack_data[pStack_User-&gt;stack_sp] = data;	<span class="hljs-comment">//数据入栈</span><br>		pStack_User-&gt;stack_sp++;								<span class="hljs-comment">//栈顶指针偏移</span><br>		<span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>	&#125;<br>	<span class="hljs-keyword">else</span>&#123;<br>		<span class="hljs-comment">/* 栈已满 */</span><br>		<span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>	&#125;<br><span class="hljs-meta">#<span class="hljs-keyword">elif</span> STACK_TYPE == LIST_STACK</span><br>	<span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">stack_t</span> *<span class="hljs-title">p</span> =</span> (<span class="hljs-keyword">struct</span> <span class="hljs-type">stack_t</span> *)<span class="hljs-built_in">malloc</span>(<span class="hljs-keyword">sizeof</span>(<span class="hljs-keyword">struct</span> <span class="hljs-type">stack_t</span>));<br>	<span class="hljs-keyword">if</span>(p)&#123;<br>		<span class="hljs-comment">/* 先储存数据 */</span><br>		p-&gt;data = data;<br>		<span class="hljs-comment">/* 再插入链表 */</span><br>		p-&gt;next = pStack_User-&gt;next;<br>		pStack_User-&gt;next = p;<br>		<span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>	&#125;<br>	<span class="hljs-keyword">else</span>&#123;<br>		<span class="hljs-comment">/* 内存申请失败，入栈失败 */</span><br>		<span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>	&#125;<br><span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br>&#125;<br><br><span class="hljs-comment">/********************************************************</span><br><span class="hljs-comment">* Description   : 出栈</span><br><span class="hljs-comment">* @pStack_User  : 目标栈的指针</span><br><span class="hljs-comment">* @data  		: 数据存储指针</span><br><span class="hljs-comment">* Return        : 0:入栈成功    </span><br><span class="hljs-comment">*				 -1：入栈失败，可能是栈满了</span><br><span class="hljs-comment">**********************************************************/</span><br><span class="hljs-type">int</span> <span class="hljs-title function_">Pop</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> <span class="hljs-type">stack_t</span> *pStack_User, <span class="hljs-type">int</span> *data)</span><br>&#123;<br><span class="hljs-meta">#<span class="hljs-keyword">if</span> STACK_TYPE == ARRAY_STACK</span><br>	<span class="hljs-comment">/* 如果栈不是空的 */</span><br>	<span class="hljs-keyword">if</span>(pStack_User-&gt;stack_sp != <span class="hljs-number">0</span>)&#123;<br>		pStack_User-&gt;stack_sp--;								<span class="hljs-comment">//栈顶指针偏移</span><br>		*data = pStack_User-&gt;stack_data[pStack_User-&gt;stack_sp];	<span class="hljs-comment">//数据出栈</span><br>		<span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>	&#125;<br>	<span class="hljs-keyword">else</span>&#123;<br>		<span class="hljs-comment">/* 栈是空的 */</span><br>		<span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>	&#125;<br><span class="hljs-meta">#<span class="hljs-keyword">elif</span> STACK_TYPE == LIST_STACK</span><br>	<span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">stack_t</span> *<span class="hljs-title">p</span> =</span> pStack_User-&gt;next;	<span class="hljs-comment">//获得头结点后第一个栈结点指针</span><br>	<span class="hljs-comment">/* 如果栈不是空的 */</span><br>	<span class="hljs-keyword">if</span>(p)&#123;<br>		pStack_User-&gt;next = p-&gt;next;<span class="hljs-comment">//删除该栈结点</span><br>		*data = p-&gt;data;			<span class="hljs-comment">//返回数据</span><br>		<span class="hljs-built_in">free</span>(p);					<span class="hljs-comment">//记得释放内存</span><br>		<span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;<br>	&#125;<br>	<span class="hljs-keyword">else</span>&#123;<br>		<span class="hljs-comment">/* 栈是空的 */</span><br>		<span class="hljs-keyword">return</span> <span class="hljs-number">-1</span>;<br>	&#125;<br><span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br>&#125;<br><br><span class="hljs-type">void</span> <span class="hljs-title function_">StackUserInit</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> <span class="hljs-type">stack_t</span> *pStack_User)</span><br>&#123;<br><span class="hljs-meta">#<span class="hljs-keyword">if</span> STACK_TYPE == ARRAY_STACK</span><br>	pStack_User-&gt;stack_sp = <span class="hljs-number">0</span>;<br><span class="hljs-meta">#<span class="hljs-keyword">elif</span> STACK_TYPE == LIST_STACK</span><br>	pStack_User-&gt;next = <span class="hljs-literal">NULL</span>;<br><span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br>&#125;<br><br><span class="hljs-type">void</span> <span class="hljs-title function_">PrintStack</span><span class="hljs-params">(<span class="hljs-keyword">struct</span> <span class="hljs-type">stack_t</span> *pStack_User)</span><br>&#123;<br>	<span class="hljs-type">int</span> buf;<br>	<span class="hljs-type">int</span> i=<span class="hljs-number">0</span>;<br><br>	<span class="hljs-keyword">while</span>(Pop(pStack_User, &amp;buf) == <span class="hljs-number">0</span>)<br>	&#123;<br>		<span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;Stack_User_Pop top%d: %d\r\n&quot;</span>,i++, buf);<br>	&#125;<br>&#125;<br><br><br><span class="hljs-type">int</span> <span class="hljs-title function_">main</span><span class="hljs-params">(<span class="hljs-type">int</span> argc, <span class="hljs-type">char</span> *argv[])</span><br>&#123;<br>	<span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">stack_t</span> <span class="hljs-title">Stack_User</span>;</span><br>	StackUserInit(&amp;Stack_User);<br><br>	Push(&amp;Stack_User, <span class="hljs-number">100</span>);<br>	Push(&amp;Stack_User, <span class="hljs-number">200</span>);<br>	Push(&amp;Stack_User, <span class="hljs-number">300</span>);<br>	Push(&amp;Stack_User, <span class="hljs-number">400</span>);<br>	Push(&amp;Stack_User, <span class="hljs-number">500</span>);<br><br>	PrintStack(&amp;Stack_User);<br><br>    <span class="hljs-built_in">printf</span>(<span class="hljs-string">&quot;完成!\r\n&quot;</span>);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>笔记2：C语言的内存管理，用户栈的代码实现</div>
+      <div>http://example.com/2024/08/30/笔记2：C语言的内存管理，用户栈的代码实现/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>John Doe</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2024年8月30日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2024/08/30/%E7%AC%94%E8%AE%B01%EF%BC%9AC%E8%AF%AD%E8%A8%80%E7%9A%84%E6%8C%87%E9%92%88%E5%92%8C%E9%80%9A%E7%94%A8%E5%8F%8C%E5%90%91%E5%BE%AA%E7%8E%AF%E9%93%BE%E8%A1%A8%E5%AD%A6%E4%B9%A0%E8%AE%B0%E5%BD%95/" title="笔记1：C语言指针和通用双向循环链表学习记录">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">笔记1：C语言指针和通用双向循环链表学习记录</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
