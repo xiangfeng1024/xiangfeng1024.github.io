@@ -1,0 +1,705 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="John Doe">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="一、概要本人近段时间在分析和研读FreeRTOS内核的源码，分析到xPortPendSVHandler任务切换函数的时候查了一下网上的资料，很多很全，但是没有一个非常深入、详细、易懂的教程，这里记录一下我自己的理解。有错误的地方还请指正，可以在评论区一起讨论。 学习内核的源码，能让人读懂、能理解的讲述才是最好的，本篇文章只详细介绍xPortPendSVHandler这一个函数的机制和原理，选用的F">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入剖析xPortPendSVHandler切换过程">
+<meta property="og:url" content="http://example.com/2024/08/30/%E6%B7%B1%E5%85%A5%E5%89%96%E6%9E%90FreeRTOS%E7%9A%84%E4%BB%BB%E5%8A%A1%E5%88%87%E6%8D%A2%E5%87%BD%E6%95%B0xPortPendSVHandler%E5%88%87%E6%8D%A2%E8%BF%87%E7%A8%8B%EF%BC%88%E9%80%90%E8%A1%8C%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90%EF%BC%89/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="一、概要本人近段时间在分析和研读FreeRTOS内核的源码，分析到xPortPendSVHandler任务切换函数的时候查了一下网上的资料，很多很全，但是没有一个非常深入、详细、易懂的教程，这里记录一下我自己的理解。有错误的地方还请指正，可以在评论区一起讨论。 学习内核的源码，能让人读懂、能理解的讲述才是最好的，本篇文章只详细介绍xPortPendSVHandler这一个函数的机制和原理，选用的F">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/img/imx6ull.png">
+<meta property="article:published_time" content="2024-08-30T08:20:20.000Z">
+<meta property="article:modified_time" content="2024-09-24T10:39:27.366Z">
+<meta property="article:author" content="John Doe">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="http://example.com/img/imx6ull.png">
+  
+  
+  
+  <title>深入剖析xPortPendSVHandler切换过程 - Hexo</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"example.com","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"C"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"left","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>向风</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="深入剖析xPortPendSVHandler切换过程"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2024-08-30 16:20" pubdate>
+          2024年8月30日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          6k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          50 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="padding-left: 2rem; margin-right: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">深入剖析xPortPendSVHandler切换过程</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h1 id="一、概要"><a href="#一、概要" class="headerlink" title="一、概要"></a>一、概要</h1><p>本人近段时间在分析和研读FreeRTOS内核的源码，分析到<code>xPortPendSVHandler</code>任务切换函数的时候查了一下网上的资料，很多很全，但是没有一个非常深入、详细、易懂的教程，这里记录一下我自己的理解。有错误的地方还请指正，可以在评论区一起讨论。</p>
+<p><strong>学习内核的源码，能让人读懂、能理解的讲述才是最好的</strong>，本篇文章只详细介绍<code>xPortPendSVHandler</code>这一个函数的机制和原理，选用的FreeRTOS移植的是<code>ARM-Cortex-M4F</code>的内核，内容与M3基本一致，可以一同分析。要理解<code>xPortPendSVHandler</code>的底层原理还需要用的其他的一些基础知识，这里都已罗列，但是不会细讲，需要有一定的ARM开发基础。</p>
+<h1 id="二、分析源码的前提"><a href="#二、分析源码的前提" class="headerlink" title="二、分析源码的前提"></a>二、分析源码的前提</h1><h4 id="1-ARM内核寄存器的理解"><a href="#1-ARM内核寄存器的理解" class="headerlink" title="1.ARM内核寄存器的理解"></a>1.ARM内核寄存器的理解</h4><p><img src="https://i-blog.csdnimg.cn/blog_migrate/a6c9b7c1f3fb2fa507c84445c20cfcca.png" srcset="/img/loading.gif" lazyload alt="aa"></p>
+<ul>
+<li>ARM内核中有上图所示这些寄存器。</li>
+<li>R0-R12都可以用来保存中间的计算结果。</li>
+<li>&#x3D;&#x3D;R13比较关键&#x3D;&#x3D;，R13是堆栈指针，MSP是主堆栈指针，PSP是进程堆栈指针，<font color= #FF0000 face="黑体" size=4><strong>两个指针可以通过指令来切换使用，两个指针的值可以不一样，可以自己设置</strong></font>，了解这个即可。</li>
+<li>R14是链接寄存器LR，保存函数的返回地址。<font color= #FF0000 face="黑体" size=4><strong>函数跳转硬件自动保存PC的下一条指令地址到LR</strong></font></li>
+<li>R15是程序计数器PC，PC里面的当前值一般指向正在执行指令地址+4处，<font color= #FF0000 face="黑体" size=4><strong>PC指向哪里，CPU就运行哪条代码</strong></font>，了解这个即可。</li>
+</ul>
+<p><strong><font color= #000000 face="黑体" size=5>ARM内核中的寄存器的值就表示当前CPU运行的状态，我们称为“现场”，了解以上知识我们就可以进行下一步准备。</strong> </p>
+<h4 id="2-栈的理解"><a href="#2-栈的理解" class="headerlink" title="2.栈的理解"></a>2.栈的理解</h4><ul>
+<li>栈是一种数据结构，在MCU中，它是&#x3D;&#x3D;一段位于RAM的内存空间&#x3D;&#x3D;。我们只需要知道：<font color= #FF0000 face="黑体" size=4><strong>栈按照先进后出的原则，栈向下增长（从栈顶指针处地址开始递减）</strong></font>就OK。</li>
+<li>push是入栈，将SP指针减一，再填入某个数据（注意32位MCU中指针操作+1都是当前地址+0x00000004）</li>
+<li>pop是出栈，去除某个数据存到某个寄存器，再将SP+1</li>
+<li><font color= #FF0000 face="黑体" size=4><strong>栈一般是用来保存函数即将跳转时当前函数内的寄存器状态</strong></font><br>![MCU栈的图例](<a target="_blank" rel="noopener" href="https://i-blog.csdnimg.cn/blog_migrate/5b396bdf5530d0066c58abaef9bd5b8e.jpeg#pic_center">https://i-blog.csdnimg.cn/blog_migrate/5b396bdf5530d0066c58abaef9bd5b8e.jpeg#pic_center</a> &#x3D;x220 )<br><img src="https://i-blog.csdnimg.cn/blog_migrate/01c5fb30a323d1bcce56ea4b1f61494f.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></li>
+</ul>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/006ac831d27121cefd407ab7f7585cd1.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></p>
+<h4 id="3-分析pxPortInitialiseStack函数"><a href="#3-分析pxPortInitialiseStack函数" class="headerlink" title="3.分析pxPortInitialiseStack函数"></a>3.分析pxPortInitialiseStack函数</h4><p>为什么要了解这个函数？因为这个函数初始化了任务的堆栈，每个任务在被创建的时候都会通过该函数初始化堆栈，每个任务都有自己的堆栈，这个堆栈就称为任务运行时的“现场”，切换任务，当然就是切换现场，所以这个函数对于理解任务切换机制非常有用。<code>（如果已自行了解该函数可以跳过此分析）</code><br><code>pxPortInitialiseStack</code>函数源码如下：（已将注释翻译成中文）</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/*</span><br><span class="hljs-comment"> * See header file for description.</span><br><span class="hljs-comment"> */</span><br>StackType_t * <span class="hljs-title function_">pxPortInitialiseStack</span><span class="hljs-params">( StackType_t * pxTopOfStack,</span><br><span class="hljs-params">                                     TaskFunction_t pxCode,</span><br><span class="hljs-params">                                     <span class="hljs-type">void</span> * pvParameters )</span><br>&#123;<br>    <span class="hljs-comment">/* Simulate the stack frame as it would be created by a context switch</span><br><span class="hljs-comment">     * interrupt. */</span><br>    <span class="hljs-comment">/* 模拟上下文切换中断时创建的栈帧,俗称“伪造现场” */</span><br>    <span class="hljs-comment">/*  */</span><br><br>    <span class="hljs-comment">/* Offset added to account for the way the MCU uses the stack on entry/exit</span><br><span class="hljs-comment">     * of interrupts, and to ensure alignment. */</span><br>    <span class="hljs-comment">/* 偏移量被添加以适应微控制器在进入/退出中断时使用栈的方式，并确保对齐 */</span><br>    pxTopOfStack--;<br><br>    *pxTopOfStack = portINITIAL_XPSR;                                    <span class="hljs-comment">/* xPSR */</span><br>    pxTopOfStack--;<br>    *pxTopOfStack = ( ( StackType_t ) pxCode ) &amp; portSTART_ADDRESS_MASK; <span class="hljs-comment">/* PC */</span><br>    pxTopOfStack--;<br>    *pxTopOfStack = ( StackType_t ) prvTaskExitError;                    <span class="hljs-comment">/* LR */</span><br><br>    <span class="hljs-comment">/* Save code space by skipping register initialisation. */</span><br>    <span class="hljs-comment">/* 跳过寄存器初始化以节省代码空间 */</span><br>    pxTopOfStack -= <span class="hljs-number">5</span>;                            <span class="hljs-comment">/* R12, R3, R2 and R1. */</span><br>    *pxTopOfStack = ( StackType_t ) pvParameters; <span class="hljs-comment">/* R0 */</span><br><br>    <span class="hljs-comment">/* A save method is being used that requires each task to maintain its</span><br><span class="hljs-comment">     * own exec return value. */</span><br>    <span class="hljs-comment">/* 正在使用一种保存方法，该方法要求每个任务维护自己的exec返回值 ARM内核知识，LR保存值为0XFFFFFFFD表示返回之后使用PSP*/</span><br><br>    pxTopOfStack--;<br>    *pxTopOfStack = portINITIAL_EXC_RETURN;<br><br>    pxTopOfStack -= <span class="hljs-number">8</span>; <span class="hljs-comment">/* R11, R10, R9, R8, R7, R6, R5 and R4. */</span><br><br>    <span class="hljs-keyword">return</span> pxTopOfStack;<br>&#125;<br><span class="hljs-comment">/*-----------------------------------------------------------*/</span><br></code></pre></td></tr></table></figure>
+<p>这里放VScode图片内容更醒目。<br><img src="https://i-blog.csdnimg.cn/blog_migrate/d9b2699e1351286e0c849f5036e0b0a3.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="源码"><br>光看这一个函数可能看的很迷糊，不急，我们一步步分析。</p>
+<h5 id="（1）参数1：StackType-t-pxTopOfStack"><a href="#（1）参数1：StackType-t-pxTopOfStack" class="headerlink" title="（1）参数1：StackType_t * pxTopOfStack"></a>（1）参数1：StackType_t * pxTopOfStack</h5><ul>
+<li>首先分析函数的第一个传入参数<code>StackType_t * pxTopOfStack</code>，栈顶指针。分析他的调用关系，他是被传入的什么值，具体分析如下：</li>
+<li>在task.c文件第1006行（大概），被<code>prvInitialiseNewTask</code>函数调用，传入值为<code>pxTopOfStack</code><br><img src="https://i-blog.csdnimg.cn/blog_migrate/97c40295944f4d526a4de4342c45e5db.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></li>
+<li><code>pxTopOfStack</code>的赋值在前面，第857行，如图：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/9ebe535ba1cfdbd897e72a37d1e3b3bc.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></li>
+<li><ul>
+<li>857行赋值这个指针使其等于要新创建任务的TCB结构体中栈数组首地址，这个首地址是什么？我们还要去了解这个数组是在哪里被分配的。</li>
+</ul>
+</li>
+<li><ul>
+<li>在task.c文件第801行，被<code>xTaskCreate</code>函数调用，他的第7个参数就是<code>pxNewTCB</code>，如下图：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/da799d793ead02a6d393ae86480cf519.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></li>
+</ul>
+</li>
+<li><ul>
+<li>然后我们需要知道在哪里<code>pxNewTCB-&gt;pxStack</code>该值被分配，继续往前找，在第763行的这一块。如下图：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/45e23b2631eee99d159aa0286cb402e6.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></li>
+</ul>
+</li>
+<li><ul>
+<li><code>pvPortMallocStack</code>就是分配该任务堆栈空间的函数，得到的首地址赋值给了<code>pxStack</code>，然后紧接着在后面就把<code>pxStack</code>赋值给了<code>pxNewTCB-&gt;pxStack</code>，至此，我们找到了<code>pxNewTCB-&gt;pxStack</code>的来源。</li>
+</ul>
+</li>
+</ul>
+<p>回到下面这张图：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/7f1452901ac596ce79e93a4aa0eccb3b.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></p>
+<ul>
+<li>第一句我们分析完了，通过<code>malloc</code>分配了指定栈大小的空间到该TCB结构体的<code>pxStack</code>中，然后获取这个地址值给到<code>pxTopOfStack</code>变量作为新创建任务的栈顶指针</li>
+<li>第二句是使一个地址按8字节方式对齐，如果<code>malloc</code>申请的内存首地址不能被8字节整除，那就要对他进行偏移，舍弃一部分空间不使用，使这块内存首地址进行8字节对齐。至于为什么要进行字节对齐，那得自行去了解操作系统和ARM内核了，这里不细讲。</li>
+<li>至此第一个参数<code>StackType_t * pxTopOfStack</code>就分析完了，总结：他表示这个新创建任务的栈顶指针。</li>
+</ul>
+<h5 id="（2）参数2：TaskFunction-t-pxCode"><a href="#（2）参数2：TaskFunction-t-pxCode" class="headerlink" title="（2）参数2：TaskFunction_t pxCode"></a>（2）参数2：TaskFunction_t pxCode</h5><ul>
+<li>很明显，他就是我们要执行的任务函数的函数入口指针。</li>
+<li>我们观察他的作用，如下图：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/39197ca24420259cfea78dfad13bc29b.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></li>
+<li>可以看到通过注释我们知道他最终被保存进了PC寄存器，中间过程我们等会再分析。</li>
+<li>前面讲过<font color= #FF0000 face="黑体" size=4><strong>PC指向哪里，CPU就运行哪条代码</strong></font>，看到这里我们就可以猜测到任务切换时的操作就是通过这种方式实现的（&#x3D;&#x3D;确实是的&#x3D;&#x3D;），&#x3D;&#x3D;直接改变PC的值，使其等于某个任务的任务运行函数入口指针&#x3D;&#x3D;，后面的&amp;上某个宏定义是有关ARM内核指令集的内容，这里不介绍。</li>
+</ul>
+<h5 id="（3）参数3：void-pvParameters"><a href="#（3）参数3：void-pvParameters" class="headerlink" title="（3）参数3：void * pvParameters"></a>（3）参数3：void * pvParameters</h5><ul>
+<li>作用位置如下图：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/357750e03300cf323f57ac2b025d0077.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></li>
+<li><code>void * pvParameters</code>最终被保存进R0寄存器，这里直接告诉大家答案，这个是为了给任务函数传递用户自定义参数用的，在ARM的指令集规范里面，R0-R3一般用来传递函数的参数。</li>
+</ul>
+<h5 id="（4）过程分析"><a href="#（4）过程分析" class="headerlink" title="（4）过程分析"></a>（4）过程分析</h5><ul>
+<li>参数分析完毕，现在进行过程分析。</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-comment">/* Offset added to account for the way the MCU uses the stack on entry/exit</span><br><span class="hljs-comment"> * of interrupts, and to ensure alignment. */</span><br><span class="hljs-comment">/* 偏移量被添加以适应微控制器在进入/退出中断时使用栈的方式，并确保对齐 */</span><br>pxTopOfStack--;<br><br>*pxTopOfStack = portINITIAL_XPSR;                                    <span class="hljs-comment">/* xPSR */</span><br></code></pre></td></tr></table></figure>
+<ul>
+<li>首先<code>栈顶指针--</code>，然后再填入数据<code>portINITIAL_XPSR</code>，就是我上边介绍栈时的<code>push</code>操作，（<code>指针--</code>操作默认是减去4字节，后文不重复解释），假设栈大小还是100字节，栈顶指针0x20000100，此时新任务堆栈结构如下图：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/297e3df54836abe293950714de802fe6.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></li>
+<li>下一步继续<code>push</code></li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs c">pxTopOfStack--;<br>*pxTopOfStack = ( ( StackType_t ) pxCode ) &amp; portSTART_ADDRESS_MASK; <span class="hljs-comment">/* PC */</span><br>pxTopOfStack--;<br>*pxTopOfStack = ( StackType_t ) prvTaskExitError;                    <span class="hljs-comment">/* LR */</span><br></code></pre></td></tr></table></figure>
+<ul>
+<li>栈：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/1a7e70752b49c2be9e979bc41e687a70.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></li>
+<li>后面的步骤就是连续<code>push</code>操作，这里就不逐步分析了，直接根据注释，给出该函数执行完成后的栈分配图。<br><img src="https://i-blog.csdnimg.cn/blog_migrate/df9d5a362862981901e2f50b771db46f.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></li>
+<li>根据函数内容和前面的分析，应该大家都能推出这张图了。（为什么空缺的都是0XA5?其实在前面我们通过<code>memset</code>将所有栈空间内存全部覆写为0XA5了，不过这对我们的分析不重要，可以跳过）。</li>
+<li>实在还是不太理解中间的过程也没关系，先记着这张图，后面还会再提到，分析这个函数，只要知道最后这张图即可，<font color= #FF0000 face="黑体" size=4><strong>最后这张图是核心！</strong></font></li>
+</ul>
+<h5 id="（5）pxPortInitialiseStack调用过程"><a href="#（5）pxPortInitialiseStack调用过程" class="headerlink" title="（5）pxPortInitialiseStack调用过程"></a>（5）pxPortInitialiseStack调用过程</h5><ul>
+<li>通过前面的分析大家也可以找到<code>pxPortInitialiseStack</code>函数是被<code>xTaskCreate</code>函数调用的。而这个<code>xTaskCreate</code>就是我们最常见的动态创建任务API了，层级调用关系如图：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/662d4b097f95ce1d2a48a9338a94012e.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></li>
+<li>通过层级调用关系我们就知道：&#x3D;&#x3D;我们每创建一个新任务都会在创建的时候为他分配好堆栈空间，并且初始化好前面提到的栈空间图的数据&#x3D;&#x3D;，堆栈的起始地址由<code>malloc</code>自动分配，大小由用户决定，在<code>xTaskCreate</code>的时候需要指定堆栈大小，每个任务由自己的<code>TCB</code>结构体，栈顶指针放在该结构体中。</li>
+<li>假如我们在程序中创建了<code>Task1</code>、<code>Task2</code>、<code>Task3</code>这三个任务，初始化堆栈大小都是100字节，那么在<code>MCU</code>的<code>RAM</code>中，就会有以下三个块：(引用的前图，实际地址大家不用关系)<br><img src="https://i-blog.csdnimg.cn/blog_migrate/9e8cbb5deac319788ff5699b3738c24b.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></li>
+<li>至此，<code>pxPortInitialiseStack</code>分析就完成了。</li>
+<li>结论：<code>pxPortInitialiseStack</code>按照下图给每个创建的任务栈顶处填充了数据。<br><img src="https://i-blog.csdnimg.cn/blog_migrate/a0f763e9623a74254eebfa2bd860816e.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></li>
+</ul>
+<h4 id="4-MSP和PSP的切换"><a href="#4-MSP和PSP的切换" class="headerlink" title="4.MSP和PSP的切换"></a>4.MSP和PSP的切换</h4><p>任何中断和异常中都使用<code>MSP</code>主栈顶指针，什么意思，就是在中断中的程序都使用<code>MSP</code>里面保存的值作为当前<code>SP</code>（<code>R13</code>寄存器）的值。</p>
+<p>在FreeRTOS中，从<code>MSP</code>切换到<code>PSP</code>使用的方法是：</p>
+<ul>
+<li><p>1.先将中断返回特殊值<code>portINITIAL_EXC_RETURN(0xfffffffd)</code>保存至任务堆栈中。<br><img src="https://i-blog.csdnimg.cn/blog_migrate/e4397a3cb26f7954d813bc4f44fc373b.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></p>
+</li>
+<li><p>2.再将任务控制块的栈顶指针<code>pxCurrentTCB</code>(因为在TCB结构体中，栈顶指针放在首位，所以结构体首地址就是栈顶指针)保存至<code>PSP</code>中。<br><img src="https://i-blog.csdnimg.cn/blog_migrate/e585012e853158d29ea3c3b5708b653e.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></p>
+</li>
+<li><p>3.<code>pop</code>出栈，将特殊值<code>portINITIAL_EXC_RETURN</code>从栈中弹出至<code>R14（LR寄存器）</code>中，在<code>SVC</code>中断中，如果返回地址是特殊值<code>portINITIAL_EXC_RETURN</code>的话返回之后程序将使用<code>PSP</code>指针（ARM内核规定），如下图：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/3918352851312398728c8c00ca961af1.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"><br><code>SVC</code>中断中<code>POP</code>指令如下图：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/e978958fda5f1b28b1371a6b4639813b.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"><br>ARM内核的中断有规定，程序在进入中断之前使用哪个堆栈指针，那么程序退出中断时就会使用哪个堆栈指针，而FreeRTOS是使用中断来切换任务，所以从切换完第一次堆栈指针之后，&#x3D;&#x3D;所有任务都使用<code>PSP</code>指针，而中断都自动使用<code>MSP</code>指针&#x3D;&#x3D;，这就是FreeRTOS中使用的双堆栈机制，这个机制有什么用？后面分析会用到。</p>
+</li>
+</ul>
+<h1 id="三、开始逐行分析xPortPendSVHandler"><a href="#三、开始逐行分析xPortPendSVHandler" class="headerlink" title="三、开始逐行分析xPortPendSVHandler"></a>三、开始逐行分析xPortPendSVHandler</h1><h4 id="1-xPortPendSVHandler执行的前文"><a href="#1-xPortPendSVHandler执行的前文" class="headerlink" title="1.xPortPendSVHandler执行的前文"></a>1.xPortPendSVHandler执行的前文</h4><p>首先得知道一点：<code>xPortPendSVHandler</code>是在滴答定时器中断里面被调用，被调用的情况是系统发生了任务调度，要从上一个任务切换到下一个要运行的目标任务。<br><img src="https://i-blog.csdnimg.cn/blog_migrate/8844ab5a132b12dae561c843dd15659f.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"><br>我们假设以下的情景如下图：<br><strong>后续任务1都会被认为是被切换的任务，任务2都是被切换后的目标任务。</strong><br><img src="https://i-blog.csdnimg.cn/blog_migrate/dbe6eda75bba8fd55dedbe7d385e82e7.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></p>
+<h4 id="2-xPortPendSVHandler源码（M4F内核版本）"><a href="#2-xPortPendSVHandler源码（M4F内核版本）" class="headerlink" title="2.xPortPendSVHandler源码（M4F内核版本）"></a>2.xPortPendSVHandler源码（M4F内核版本）</h4><p>源码如下：(注释已翻译)</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><code class="hljs c">__asm <span class="hljs-type">void</span> <span class="hljs-title function_">xPortPendSVHandler</span><span class="hljs-params">( <span class="hljs-type">void</span> )</span><br>&#123;<br>    <span class="hljs-keyword">extern</span> uxCriticalNesting;<br>    <span class="hljs-keyword">extern</span> pxCurrentTCB;<br>    <span class="hljs-keyword">extern</span> vTaskSwitchContext;<br><br><span class="hljs-comment">/* *INDENT-OFF* */</span><br>    PRESERVE8<br><br>    mrs r0, psp<br>    isb<br>    <span class="hljs-comment">/* Get the location of the current TCB. */</span><br>    <span class="hljs-comment">/* 获取当前TCB的位置 */</span><br>    ldr r3, =pxCurrentTCB<br>    ldr r2, [ r3 ]<br><br>    <span class="hljs-comment">/* Is the task using the FPU context?  If so, push high vfp registers. */</span><br>    <span class="hljs-comment">/* 任务是否使用FPU上下文？如果是，则保存vfp寄存器 */</span><br>    tst r14, #<span class="hljs-number">0x10</span><br>    it eq<br>    vstmdbeq r0!, &#123;s16-s31&#125;<br><br>    <span class="hljs-comment">/* Save the core registers. */</span><br>    <span class="hljs-comment">/* 保存核心寄存器. */</span><br>    stmdb r0!, &#123;r4-r11, r14&#125;<br><br>    <span class="hljs-comment">/* Save the new top of stack into the first member of the TCB. */</span><br>    <span class="hljs-comment">/* 将新的栈顶保存到TCB的第一个成员中。 */</span><br>    str r0, [ r2 ]<br><br>    stmdb sp!, &#123;r0, r3&#125;<br>    mov r0, #configMAX_SYSCALL_INTERRUPT_PRIORITY<br>    msr basepri, r0<br>    dsb<br>    isb<br>    bl vTaskSwitchContext<br>    mov r0, #<span class="hljs-number">0</span><br>    msr basepri, r0<br>    ldmia sp!, &#123;r0, r3&#125;<br><br>    <span class="hljs-comment">/* The first item in pxCurrentTCB is the task top of stack. */</span><br>    <span class="hljs-comment">/* pxCurrentTCB中的第一项是堆栈的任务顶部 */</span><br>    ldr r1, [ r3 ]<br>    ldr r0, [ r1 ]<br><br>    <span class="hljs-comment">/* Pop the core registers. */</span><br>    <span class="hljs-comment">/* 弹出核心寄存器 */</span><br>    ldmia r0!, &#123;r4-r11, r14&#125;<br><br>    <span class="hljs-comment">/* Is the task using the FPU context?  If so, pop the high vfp registers</span><br><span class="hljs-comment">     * too. */</span><br>    <span class="hljs-comment">/* 任务是否使用FPU上下文？如果是，则弹出vfp寄存器 */</span><br>    tst r14, #<span class="hljs-number">0x10</span><br>    it eq<br>    vldmiaeq r0!, &#123;s16-s31&#125;<br><br>    msr psp, r0<br>    isb<br>    <span class="hljs-meta">#<span class="hljs-keyword">ifdef</span> WORKAROUND_PMU_CM001 <span class="hljs-comment">/* XMC4000 specific errata */</span></span><br>        <span class="hljs-meta">#<span class="hljs-keyword">if</span> WORKAROUND_PMU_CM001 == 1</span><br>            push &#123; r14 &#125;<br>            pop &#123; pc &#125;<br>            nop<br>        <span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br>    <span class="hljs-meta">#<span class="hljs-keyword">endif</span></span><br><br>    bx r14<br><span class="hljs-comment">/* *INDENT-ON* */</span><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h4 id="3-第一部分——保存现场"><a href="#3-第一部分——保存现场" class="headerlink" title="3.第一部分——保存现场"></a>3.第一部分——保存现场</h4><p><code>PRESERVE8</code><br>表示从C代码进入汇编代码的世界时，要保证汇编部分的编码在调用c接口时栈是8字节对齐的。<br>*——————————————————</p>
+<p><code>mrs r0, psp</code><br><code>mrs</code>指令可以操作特殊功能寄存器，他的功能与<code>ldr</code>指令一致，只是权限更高，可以访问特殊功能寄存器。这里用它访问<code>psp</code>寄存器，把<code>psp</code>值读出并存放到<code>r0</code>。通过阅读源码可知，此时<code>psp</code>的值就是<code>pxCurrentTCB</code>当前运行任务的栈顶指针值，如下图所示位置被修改：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/6676efeb37d5fb03797acb99ab29c151.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"><br>（<code>SVC</code>这里不进行分析，但这里补充一点<code>SVC中断</code>的知识：<code>SVC中断</code><strong>只在任务开始调度时运行一次</strong>，在<code>SVC</code>中<code>psp</code>被赋值为当前任务的栈顶指针是为了开始第一个任务的运行，后续<code>SVC</code>不会再次被触发，所以<code>psp</code>指针其实<font color= #FF0000 face="黑体" size=4><strong>每次就是指向了当前任务的栈顶</strong></font>)。</p>
+<p><code>xPortPendSVHandler</code>在前半部分很明显是为了<font color= #FF0000 face="黑体" size=4><strong>保存现场</strong></font>， 这条指令很好的体现了双堆栈指针的好处，在这里就可以直接取出<code>psp</code>的值作为&#x3D;&#x3D;任务1&#x3D;&#x3D;的栈顶指针，<font color= #FF0000 face="黑体" size=4><strong>而不再需要逐步往前推<code>SP</code>寄存器的值才能得到前一个任务的栈顶指针</strong></font>。因为此时是中断状态，<code>CPU</code>是使用<code>MSP</code>指针，不会因为中断而在任务的堆栈上保存相关信息。<br>*——————————————————</p>
+<p><code>isb</code><br>指令同步隔离。最严格：它会清洗流水线，以保证所有它前面的指令都执<br>行完毕之后，才执行它后面的指令。（ARM内核知识，不需要理解，有兴趣的可以去了解ARM-Cortex-M3内核取指令时的流水线机制）<br>*——————————————————</p>
+<p><code>ldr r3, =pxCurrentTCB</code><br><code>ldr</code>指令，没啥好讲的，就是把后一个值读出并存放到<code>，</code>前面的寄存器，但这里是用了特殊的用法，使用的是伪指令，功能就是将&#x3D;&#x3D;任务1&#x3D;&#x3D;的<code>TCB</code>结构体指针的&#x3D;&#x3D;地址&#x3D;&#x3D;写入<code>r3</code>（因为<code>ldr</code>只能存放符合规范的32位立即数或值，TCB的地址值可能是不合规范的32位值，这里使用伪指令就能这样操作）。<br>*——————————————————</p>
+<p><code>ldr r2, [ r3 ]</code><br>读出<code>r3</code>指向的地址的值并存放<code>r2</code>（等价<code>r2 = (*r3)</code>），得到任务1<code>TCB</code>结构体的首地址并存放到<code>r2</code>。<br>*——————————————————</p>
+<p><code>tst r14, #0x10</code><br><code>it eq</code><br><code>vstmdbeq r0!, &#123;s16-s31&#125;</code><br>这三条是保存当前浮点寄存器的值至浮点寄存器（<code>Cortex-M4F</code>内核才有的，M3内核代码中没有该三句），M3内核可以不用关心，这三句不重要。<br>*——————————————————</p>
+<p><code>stmdb r0!, &#123;r4-r11, r14&#125;</code><br>这条指令就是比较核心的<code>push</code>入栈操作了，以<code>r0</code>为基地址。开始把<code>r4</code>寄存器中地址指向的内容读出并放入<code>r0</code>寄存器中地址指向的内容，然后<code>r0</code>向下增长一个地址（4字节），然后再把<code>r5</code>所指内容放入<code>r0</code>……………依此类推。</p>
+<p><code>r0</code>在这里是<code>psp</code>的值，也就是保存当前CPU内<code>r4-r11</code>还有<code>r14(LR)</code>的值到栈中。目前的栈如下图：（注意这里<code>r0</code>只是引用了<code>psp</code>的值而未改变<code>psp</code>，所以只是栈变化，<code>psp</code>未变化）<br><img src="https://i-blog.csdnimg.cn/blog_migrate/018573f90a9ebd6b1633d6d3be3f30c7.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"><br>*——————————————————</p>
+<p><code>str r0, [ r2 ]</code><br><code>str</code>指令就是<code>ldr</code>指令的反义，他将<code>r0</code>的值写入<code>r2</code>所指的地址。从上图我们可以指定<code>r0</code>目前的值就是任务1当前栈空间的&#x3D;&#x3D;栈顶指针&#x3D;&#x3D;，而<code>r2</code>所指位置就是任务1的TCB结构体里面存储的栈顶指针的值。<font color= #FF0000 face="黑体" size=4><strong>这一步就是将保存的现场（现场就是CPU各寄存器的值）存储覆写到自己的TCB结构体中保存的栈顶指针值，更新栈顶指针。</strong></font></p>
+<p>我们可以看到，我们在这里只保存了部分寄存器，还有一部分寄存器怎么没有保存？比如<code>r0,r1,r2</code>这些。这是因为ARM内核在程序进入<code>PendSV中断</code>中硬件会自动保存<code>r0、r1、r2、r3、PSR、PC、LR</code>寄存器，我们能看到的保存都是软件保存，他们存放的位置就是位于上图浮点寄存器空间的上方。<br><img src="https://i-blog.csdnimg.cn/blog_migrate/253cbaec18b3e304d71c02affc9126c8.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"><br><strong>至此，CPU所有寄存器都已入栈，保存了现场之后的栈顶指针也都更新到了当前任务（这里是任务1）的TCB中。</strong></p>
+<p>我们再看看前面画的这张图：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/6ffaf06cd87256f3904a35e11b258f26.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"><br>是不是在<code>PendSV中断</code>进入到这一步时，所有的任务的栈空间都回到了这种状态？（只是红色箭头指的不一定是最上面那块内存，可能因为任务运行导致使用了栈空间而下移）是不是跟前面的串通了？<br>*——————————————————</p>
+<h4 id="4-第二部分——选出最高优先级任务，更新pxCurrentTCB"><a href="#4-第二部分——选出最高优先级任务，更新pxCurrentTCB" class="headerlink" title="4.第二部分——选出最高优先级任务，更新pxCurrentTCB"></a>4.第二部分——选出最高优先级任务，更新pxCurrentTCB</h4><p><code>stmdb sp!, &#123;r0, r3&#125;</code><br>这条指令会与后面的指令<code>ldmia sp!, &#123;r0, r3&#125;</code>对应，一同分析。<br>先明确，这里的<code>sp</code>是在操作<code>msp</code>所指位置，因为这是在中断中。所以这条指令不会干涉到<code>psp</code>的入栈和出栈。这条指令前面已经介绍过，就是&#x3D;&#x3D;依次入栈&#x3D;&#x3D;。这是为了后续要进入函数跳转，也需要保存现场而做的准备，将<code>r0、r3</code>入栈，等到函数执行完成，在<code>r0、r3</code>出栈，恢复到CPU内。<br>*——————————————————</p>
+<p><code>mov r0, #configMAX_SYSCALL_INTERRUPT_PRIORITY</code><br><code>mov</code>指令是数据传输指令，这里用法很简单，就是把后面这个宏定义的立即数存放到<code>r0</code>寄存器。<code>configMAX_SYSCALL_INTERRUPT_PRIORITY</code>的值如下图：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/696fda45cf6624b21ea50c7e31da22a5.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"><br>定义了内核可屏蔽的最高优先级。为后续关中断做准备。<br>*——————————————————</p>
+<p><code>msr basepri, r0</code><br>使用<code>msr</code>指令操作特权寄存器<code>basepri</code>，目的是屏蔽某一个优先级及其以下优先级的中断（<strong>关中断</strong>），防止后续找出最高优先级的过程中被其它中断打断。<br>*——————————————————<br><code>dsb</code><br><code>isb</code><br>数据和指令同步</p>
+<p>*——————————————————<br><code>bl vTaskSwitchContext</code><br><code>bl</code>是程序跳转指令，跳转到一个地址去执行程序并将此时的返回地址保存至<code>LR</code>寄存器。<code>vTaskSwitchContext</code>这是个C函数，他的作用是找出当前就绪态链表中最高优先级的任务，并将当前任务控制块<code>pxCurrentTCB</code>的值更新为这个任务的TCB。（就是我们说的任务切换了，当前任务从任务1切换至任务2）。<br>我们这里只关心任务如何切换，这里有关的内容就是<code>pxCurrentTCB</code>的值被更新，至于如何找到最高优先级的任务，可以看最后的补充内容。</p>
+<p>*——————————————————<br><code>mov r0, #0</code><br><code>msr basepri, r0</code><br>这两句一起讲，与前面的关中断对应，这里就是开中断，<code>basepri</code>写入0就是不屏蔽任何中断。</p>
+<p><code>ldmia sp!, &#123;r0, r3&#125;</code>也在前面已经被分析过了。</p>
+<p>*——————————————————</p>
+<h4 id="5-第三部分——恢复现场"><a href="#5-第三部分——恢复现场" class="headerlink" title="5.第三部分——恢复现场"></a>5.第三部分——恢复现场</h4><p><code>ldr r1, [ r3 ]</code><br>这里的<code>r3</code>可以从前面的程序知道，保存的是<code>pxCurrentTCB</code>的地址，访问这个地址就可以得到任务2的TCB首地址（这里<code>pxCurrentTCB</code>已经被更新为任务2了）。存放在<code>r1</code>寄存器中。<br>*——————————————————</p>
+<p><code>ldr r0, [ r1 ]</code><br>读出<code>r1</code>寄存器地址所指数据存放到<code>r0</code>，就是读出任务2的栈顶指针。因为在TCB中，TCB结构体首地址存放的数据是从栈顶指针开始。<br>*——————————————————</p>
+<p><code>ldmia r0!, &#123;r4-r11, r14&#125;</code><br>开始出栈，与<code>stmdb r0!, &#123;r4-r11, r14&#125;</code>是对应的，不用过多分析，就是将任务2的栈空间按照顺序，将内容逐个移至CPU寄存器中，实现<font color= #FF0000 face="黑体" size=4><strong>恢复现场</strong></font>。</p>
+<p>任务2在被调度时，也会像刚刚任务1那样，先被保存了现场，因此任务2在被恢复现场时可以参考上面的栈空间图片，他们都是一样的。</p>
+<p><strong>如果任务2是第一次被恢复，那么也需要一个栈，这个栈就联系起来了我们为什么要去分析<code>pxPortInitialiseStack</code>函数了，该函数在任务2还没有被保存现场时就构造了一个现场，函数列出了栈中所有寄存器的值。</strong><br>*——————————————————</p>
+<p><code>tst r14, #0x10</code><br><code>it eq</code><br><code>vldmiaeq r0!, &#123;s16-s31&#125;</code><br>恢复浮点寄存器的值<br>*——————————————————</p>
+<p><code>msr psp, r0</code><br>这一步也很关键，我们知道前面<code>r0</code>在恢复完所有的寄存器之后，就回到了原来的栈顶。因为每个任务的栈空间都是独立分配的，他们不一定连续，所以就要不断修改<code>psp</code>的值，因为<code>psp</code>是一定要指向当前程序的栈顶的，所以在恢复完现场之后，栈顶也要恢复。<br>*——————————————————</p>
+<p><code>isb</code><br>指令同步<br>*——————————————————</p>
+<h4 id="6-第四部分——任务栈恢复分析"><a href="#6-第四部分——任务栈恢复分析" class="headerlink" title="6.第四部分——任务栈恢复分析"></a>6.第四部分——任务栈恢复分析</h4><p><code>bx r14</code><br>bx跳转指令，目标地址处的指令既可以是ARM 指令，也可以是Thumb指令。<br>注意这里是跳转到<code>r14</code>，我们要分析此时CPU的<code>r14</code>存放的是什么内容。分两种情况。</p>
+<ul>
+<li><p>情况一：任务2不是第一次被调度<br>这种情况下，是属于任务2在运行过程中被<code>SysTick中断</code>打断，那么在打断的同时硬件就保存了程序要运行的下一条指令作为返回地址存放至<code>r14</code>，此时在执行这条指令时程序就原封不动的回到任务2被打断之前的地方继续执行任务。</p>
+</li>
+<li><p>情况2：任务2是第一次被调度<br>这种情况下，任务2的栈是被程序构造的，他的<code>r14</code>寄存器存放的是一个特殊值<code>portINITIAL_EXC_RETURN</code>，如下图：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/3362e030be5f7cea88db2aa2e1ccf085.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"><br><img src="https://i-blog.csdnimg.cn/blog_migrate/45c9fcf162d0ff29f4862fbe17c1c159.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"><br>这里为什么把这个位置称为（LR(特殊)）呢？我们进行分析。任务被创建时，就构造了这么一个现场，在第一次被恢复时，是使用<code>ldmia r0!, &#123;r4-r11, r14&#125;</code>这条指令，没错，在（R11）上方这个位置，被我们软件恢复至<code>r14(LR)</code>寄存器。<br>又因为任务2是第一次被调用，不会有硬件帮我们保存上半部分那些寄存器，所以FreeRTOS用软件的方式保存了那些寄存器，并设置<code>LR</code>为特殊值<code>0xfffffffd</code>，使得程序在<code>bx r14</code>时，被当做一个中断返回处理，返回之后程序使用<code>psp</code>的值作为<code>sp</code>栈顶指针，并自动将上半部分的所有寄存器自动出栈恢复至CPU内。<br>我们知道，<code>pc</code>寄存器的值就是程序要执行的指令的地方，上边部分的值被恢复，上图<code>pc</code>的值同样被恢复了，而<code>pc</code>的值被设置为任务2的回调函数入口地址，所以从下一个指令开始，程序就会运行任务2了。<br>至此，任务2切换完成。</p>
+</li>
+</ul>
+<p>*——————————————————<br>至此，<code>xPortPendSVHandler</code>分析完成。</p>
+<h1 id="四、补充内容"><a href="#四、补充内容" class="headerlink" title="四、补充内容"></a>四、补充内容</h1><p><code>vTaskSwitchContext</code>是找出就绪态链表最高优先级的函数，这个函数就是FreeRTOS的调度算法，最核心内容。<br>他的内部实现是通过<code>taskSELECT_HIGHEST_PRIORITY_TASK</code>来实现<br><img src="https://i-blog.csdnimg.cn/blog_migrate/dac4c32be51e2e1374b7aae2d228d99c.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"><br>宏定义主体：<br><img src="https://i-blog.csdnimg.cn/blog_migrate/2794025420f709aa40c5905e8402160d.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></p>
+<p>箭头指的就是他的调度算法。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-meta">#<span class="hljs-keyword">define</span> portGET_HIGHEST_PRIORITY( uxTopPriority, uxReadyPriorities )    uxTopPriority = ( 31UL - ( uint32_t ) __clz( ( uxReadyPriorities ) ) )</span><br></code></pre></td></tr></table></figure>
+<p>这里不带大家分析代码了，直接说过程和结论。</p>
+<ul>
+<li>每个任务在创建时都会根据自己的优先级将一个变量对应的那一位（比如自己的优先级为5，就会把一个32位变量的第5位置1，其他位不变）置1，这个变量是个全局变量。</li>
+<li><code>__clz</code>指令可以计算出某个32位变量&#x3D;&#x3D;前导0&#x3D;&#x3D;的个数，拿31减去这个数，（比如当前最高优先级任务时20，那么之前的全局变量前导0个数就是11，31-11就是20）就可以得到当前就绪态链表最高优先级是位于哪个优先级链表中。（FreeRTOS每个优先级都会对应一个链表）</li>
+<li>找到位于哪个链表之后，就可以直接去该链表中取出该任务的TCB，更新至<code>pxCurrentTCB</code>。</li>
+</ul>
+<p>当然还有另一种情况，如果我配置FreeRTOS可支持最大优先级超过32怎么办？比如设置成100，如果一个任务优先级为40，这个时候自然是不能使用这种方法了，因为<code>__clz</code>指令没办法获取64位变量前导零个数。这个时候就只能使用传统方法了，一个个链表找，从高优先级开始遍历，直至链表不为空。<br><img src="https://i-blog.csdnimg.cn/blog_migrate/e8ca92619798f4bc19661056014cab6c.jpeg#pic_center" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>深入剖析xPortPendSVHandler切换过程</div>
+      <div>http://example.com/2024/08/30/深入剖析FreeRTOS的任务切换函数xPortPendSVHandler切换过程（逐行代码分析）/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>John Doe</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2024年8月30日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2024/08/30/%E5%9F%BA%E4%BA%8Eimxu6ll%E7%9A%84%E7%BB%BC%E5%90%88%E6%B5%8B%E8%AF%95%E5%B7%A5%E5%85%B7/" title="基于IMX6ULL开发板的综合测试工具设计">
+                        <span class="hidden-mobile">基于IMX6ULL开发板的综合测试工具设计</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
